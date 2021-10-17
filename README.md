@@ -1,5 +1,9 @@
 # amplify-function-hotswap-plugin
 
+# Demo
+
+[![asciicast](https://asciinema.org/a/442725.svg)](https://asciinema.org/a/442725)
+
 ## Installation
 
 ```sh
