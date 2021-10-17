@@ -1,6 +1,7 @@
+const path = require("path");
+
 async function run(context) {
-  // print out the version of your plugin package
-  context.print.info("version command to be implemented.");
+  context.print.info(require(path.join(__dirname, "..", "package.json")).version);
 }
 
 module.exports = {
