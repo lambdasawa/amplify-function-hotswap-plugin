@@ -1,6 +1,22 @@
 async function run(context) {
-  // print out the help message of your plugin
-  context.print.info("help command to be implemented.");
+  context.print.info("");
+
+  context.amplify.showHelp("amplify <command> <subcommand>", [
+    {
+      name: "watch",
+      description: "Watch amplify/backend/function and call lambda:UpdateFunctionCode.",
+    },
+    {
+      name: "version",
+      description: "Show plugin version.",
+    },
+    {
+      name: "help",
+      description: "Show this help.",
+    },
+  ]);
+
+  context.print.info("");
 }
 
 module.exports = {
