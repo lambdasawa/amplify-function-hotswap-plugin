@@ -1,0 +1,9 @@
+{
+  "name": "amplify-function-hotswap-plugin",
+  "type": "util",
+  "commands": [
+    "version",
+    "help"
+  ],
+  "eventHandlers": []
+}
