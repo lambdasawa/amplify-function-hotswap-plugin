@@ -37,11 +37,29 @@ async function onFileChange(context, event, name) {
     return;
   }
 
-  await updateLambdaFunction(context, getResourceNameFromPath(name));
+  const resourceName = getResourceNameFromPath(name);
+
+  if (isResourceFunction(resourceName)) {
+    await updateLambdaFunction(context, resourceName);
+  } else if (isResourceLayer(resourceName)) {
+    await updateLambdaLayer(context, resourceName);
+  }
 }
 
 function getResourceNameFromPath(pathString) {
   return pathString.replace(functionDirectoryPath + path.sep, "").split(path.sep)[0];
+}
+
+function isResourceFunction(resourceName) {
+  const meta = stateManager.getMeta();
+  const resource = meta["function"][resourceName];
+  return resource.service === "Lambda";
+}
+
+function isResourceLayer(resourceName) {
+  const meta = stateManager.getMeta();
+  const resource = meta["function"][resourceName];
+  return resource.service === "LambdaLayer";
 }
 
 async function updateLambdaFunction(context, resourceName) {
@@ -64,7 +82,73 @@ function getFunctionNameFromResourceName(resourceName) {
   return resource.output.Arn.match(/arn:aws:lambda:.*:[\d]*:function:([^:]*)/)[1];
 }
 
-async function createZip(dir) {
+async function updateLambdaLayer(context, resourceName) {
+  const { name: layerName, version: layerVersion } = parseLayerArn(resourceName);
+
+  const zipPath = await createZip(path.join("amplify", "backend", "function", resourceName), { isFunction: false });
+
+  const lambda = new AWS.Lambda();
+  const { LayerVersionArn: layerVersionArn } = await lambda
+    .publishLayerVersion({
+      LayerName: layerName,
+      CompatibleRuntimes: require(path.join(
+        process.cwd(),
+        "amplify",
+        "backend",
+        "function",
+        resourceName,
+        "parameters.json"
+      )).runtimes,
+      Content: {
+        ZipFile: fs.readFileSync(zipPath),
+      },
+    })
+    .promise();
+
+  await Promise.all(
+    findReferencedFunctionNames(resourceName).map((functionName) =>
+      updateLayerDependency(functionName, layerVersionArn)
+    )
+  );
+}
+
+function parseLayerArn(resourceName) {
+  const meta = stateManager.getMeta();
+  const resource = meta["function"][resourceName];
+  const [_, name, version] = resource.output.Arn.match(/arn:aws:lambda:.+:[\d]+:layer:([^:]+):([\d]+)/);
+  return { name, version };
+}
+
+function findReferencedFunctionNames(resourceName) {
+  const meta = stateManager.getMeta();
+  return Object.values(meta["function"])
+    .filter(
+      (resource) =>
+        resource.dependsOn && resource.dependsOn.find((dependency) => dependency.resourceName === resourceName)
+    )
+    .map((resource) => resource.output.Arn)
+    .map((arn) => arn.match(/arn:aws:lambda:.*:[\d]*:function:([^:]*)/)[1]);
+}
+
+async function updateLayerDependency(functionName, layerVeresionArn) {
+  const lambda = new AWS.Lambda();
+
+  const currentConfiguration = await lambda.getFunctionConfiguration({ FunctionName: functionName }).promise();
+
+  const currentLayersWithoutOld = currentConfiguration.Layers.map(({ Arn }) => Arn).filter(
+    (arn) => !arn.startsWith(layerVeresionArn.replace(/:[\d]+$/, ""))
+  );
+  const newLayers = [...currentLayersWithoutOld, layerVeresionArn];
+
+  await lambda
+    .updateFunctionConfiguration({
+      FunctionName: functionName,
+      Layers: newLayers,
+    })
+    .promise();
+}
+
+async function createZip(dir, option = { isFunction: true }) {
   const tempDirPath = fs.mkdtempSync(os.tmpdir());
   const tempFilePath = path.join(tempDirPath, "function.zip");
   const tempFileStream = fs.createWriteStream(tempFilePath);
@@ -82,7 +166,14 @@ async function createZip(dir) {
     archive.on("error", reject);
 
     archive.pipe(tempFileStream);
-    archive.directory(dir, false);
+
+    if (option.isFunction) {
+      archive.directory(dir, false);
+    } else {
+      archive.directory(path.join(dir, "opt"), false);
+      archive.directory(path.join(dir, "lib"), false);
+    }
+
     archive.finalize();
   });
 }
