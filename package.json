@@ -1,6 +1,6 @@
 {
   "name": "amplify-function-hotswap-plugin",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "amplify function hotswap plugin",
   "main": "index.js",
   "scripts": {
