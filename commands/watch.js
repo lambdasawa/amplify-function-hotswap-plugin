@@ -216,7 +216,7 @@ async function updateLayerDependency(context, functionName, layerVeresionArn) {
 }
 
 async function createZip(dir, option = { isFunction: true }) {
-  const tempDirPath = fs.mkdtempSync(os.tmpdir());
+  const tempDirPath = fs.mkdtempSync(path.join(os.tmpdir(), os.sep));
   const tempFilePath = path.join(tempDirPath, "function.zip");
   const tempFileStream = fs.createWriteStream(tempFilePath);
   const archive = archiver("zip", {});
