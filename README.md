@@ -1,5 +1,8 @@
 # amplify-function-hotswap-plugin
 
+
+[![NPM](https://nodei.co/npm/amplify-function-hotswap-plugin.png)](https://nodei.co/npm/amplify-function-hotswap-plugin/)
+
 # Demo
 
 [![asciicast](https://asciinema.org/a/442725.svg)](https://asciinema.org/a/442725)
